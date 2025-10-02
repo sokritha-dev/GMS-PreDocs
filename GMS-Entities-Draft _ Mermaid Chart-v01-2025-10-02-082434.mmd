@@ -1,0 +1,99 @@
+erDiagram
+    User ||--o{ Win : wins
+    User ||--o{ GachaLog : logs
+    Gacha ||--o{ Win : records
+    Gacha ||--o{ GachaPrize : contains
+    Gacha ||--o{ GachaLog : tracks
+    Prize ||--o{ Win : awarded
+    Prize ||--o{ GachaPrize : assigned
+    Prize ||--o{ GachaLog : logged
+    Admin ||--o{ AdminLog : performs
+    Admin ||--o{ Point : transactions
+
+
+    User {
+        string id PK "UUID"
+        string username "Unique"
+        string email "Unique"
+        float points_balance "Default: 0"
+        datetime registration_date
+        datetime last_login "Nullable"
+    }
+
+    Gacha {
+        string id PK "UUID"
+        string name
+        string explanation "Nullable"
+        string banner
+        string discharge_method "Enum: probability, sequential, hybrid"
+        string status "Enum: now-available, private, schedule-release"
+        int max_times_per_user "Nullable"
+        int daily_limit "Nullable"
+        int total_limit "Nullable"
+        datetime start_date
+        datetime end_date
+        int number_used "Default: 0"
+        float total_points_sold "Default: 0"
+    }
+
+    Prize {
+        string id PK "UUID"
+        string name
+        int stock "-1 for infinite"
+        string image_url "Nullable"
+        string rarity "Enum: c (common), r (rare), ar (art-rare), sar (special-art-rare), ur (ultra-rare)"
+    }
+
+    GachaPrize {
+        string id PK "UUID"
+        string gacha_id FK
+        string prize_id FK
+        float probability "Nullable, for probability/hybrid"
+        int sequential "Nullable, for sequential/hybrid"
+        boolean is_hybrid "Default: false, for probability+sequential"
+    }
+
+    Win {
+        string id PK "UUID"
+        string user_id FK
+        string gacha_id FK
+        string prize_id FK
+        datetime win_date
+        float point_paid
+    }
+
+    Admin {
+        string id PK "UUID"
+        string username "Unique"
+        string email "Unique"
+        string password
+        string authority_level "Enum: viewer, operator, manager, super-admin"
+        boolean is_active
+    }
+
+    AdminLog {
+        string id PK "UUID"
+        string admin_id FK
+        string operation_content "Enum: card-probability-change, pack-creation, ..."
+        string subject
+        string ip_address
+        datetime timestamp
+    }
+
+    GachaLog {
+        string id PK "UUID"
+        string user_id FK
+        string gacha_id FK
+        string prize_id FK "Nullable"
+        float random_value
+        datetime timestamp
+    }
+
+    Point {
+        string id PK "UUID"
+        string admin_id FK
+        string user_id FK
+        float amt
+        datetime date
+        string operation "Enum: add-point, deduct-point, setting-point"
+    }

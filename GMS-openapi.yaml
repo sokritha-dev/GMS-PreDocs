@@ -1,0 +1,585 @@
+openapi: 3.0.3
+info:
+  title: Gacha Game Admin API
+  version: 1.1.0
+  description: |
+    Admin API for managing gacha, prizes, and operational analytics. This spec is designed
+    for contract-first development and works well with Postman docs + mock servers.
+  contact:
+    name: API Support
+    email: support@yourcompany.com
+
+servers:
+  - url: /api/v1
+    description: API base path
+
+tags:
+  - name: Dashboard
+  - name: Gacha
+  - name: Prizes
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token required for all endpoints, based on Admin.authority_level (viewer, operator, manager, super-admin).
+
+  schemas:
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        has_next:
+          type: boolean
+      required: [page, limit, total, has_next]
+      example: { page: 1, limit: 20, total: 125, has_next: true }
+
+    Gacha:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique gacha identifier
+        name:
+          type: string
+          description: Gacha name (e.g., "Summer Event Gacha")
+        explanation:
+          type: string
+          nullable: true
+          description: Optional gacha description
+        banner:
+          type: string
+          nullable: true
+          description: URL to gacha banner image
+        discharge_method:
+          type: string
+          description: Draw method (probability-based, sequential, or hybrid)
+          enum: ["probability", "sequential", "hybrid"]
+        status:
+          type: string
+          description: Gacha availability status
+          enum: ["now-available", "private", "schedule-release"]
+        max_times_per_user:
+          type: integer
+          nullable: true
+          description: Max pulls per user (optional)
+        daily_limit:
+          type: integer
+          nullable: true
+          description: Daily pull limit (optional)
+        total_limit:
+          type: integer
+          nullable: true
+          description: Total pull limit (optional)
+        start_date:
+          type: string
+          format: date-time
+          description: Gacha start date (JST)
+        end_date:
+          type: string
+          format: date-time
+          description: Gacha end date (JST)
+        number_used:
+          type: integer
+          description: Total pulls, incremented per draw
+        total_points_sold:
+          type: number
+          format: float
+          description: Total points spent on pulls
+      required:
+        - name
+        - discharge_method
+        - status
+        - start_date
+        - end_date
+        - number_used
+        - total_points_sold
+      example:
+        id: "123e4567-e89b-12d3-a456-426614174000"
+        name: "Summer Event Gacha"
+        explanation: "Limited-time gacha with exclusive prizes"
+        banner: "https://example.com/banners/summer.jpg"
+        discharge_method: "probability"
+        status: "now-available"
+        max_times_per_user: 100
+        daily_limit: 10
+        total_limit: 1000
+        start_date: "2025-10-01T00:00:00Z"
+        end_date: "2025-10-31T23:59:59Z"
+        number_used: 50
+        total_points_sold: 5000.0
+
+    Prize:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        image: { type: string, nullable: true }
+        rarity: { type: string, enum: ["common", "rare", "super-rare", "ultra-rare"] }
+        stock:
+          type: integer
+          description: Remaining stock (-1 means infinite)
+        attributes:
+          type: object
+          additionalProperties: true
+          description: Arbitrary prize metadata (e.g., size, color)
+      required: [name, rarity, stock]
+      example:
+        id: "456e7890-e89b-12d3-a456-426614174002"
+        name: "Plush Dragon"
+        image: "https://example.com/prizes/dragon.png"
+        rarity: "rare"
+        stock: 120
+        attributes:
+          color: "green"
+          size: "M"
+
+    GachaPrize:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier
+        gacha_id:
+          type: string
+          format: uuid
+          description: Associated gacha
+        prize_id:
+          type: string
+          format: uuid
+          description: Associated prize
+        probability:
+          type: number
+          format: float
+          nullable: true
+          description: Probability for probability/hybrid methods (0.0 to 1.0)
+        sequential:
+          type: integer
+          nullable: true
+          description: Sequence order for sequential/hybrid methods
+        is_hybrid:
+          type: boolean
+          description: Indicates hybrid method
+      required: [gacha_id, prize_id, is_hybrid]
+      example:
+        id: "789e1234-e89b-12d3-a456-426614174001"
+        gacha_id: "123e4567-e89b-12d3-a456-426614174000"
+        prize_id: "456e7890-e89b-12d3-a456-426614174002"
+        probability: 0.2
+        sequential: null
+        is_hybrid: false
+
+    Win:
+      type: object
+      properties:
+        gacha_id: { type: string, format: uuid }
+        prize:
+          $ref: '#/components/schemas/Prize'
+        draw_id:
+          type: string
+          format: uuid
+        result:
+          type: string
+          enum: ["win", "lose"]
+        message:
+          type: string
+      required: [gacha_id, prize, draw_id, result]
+      example:
+        gacha_id: "123e4567-e89b-12d3-a456-426614174000"
+        prize:
+          id: "456e7890-e89b-12d3-a456-426614174002"
+          name: "Plush Dragon"
+          image: "https://example.com/prizes/dragon.png"
+          rarity: "rare"
+          stock: 119
+          attributes: { color: "green", size: "M" }
+        draw_id: "a1b2c3d4-e89b-12d3-a456-426614174099"
+        result: "win"
+        message: "Congratulations! You won Plush Dragon"
+
+    Error:
+      type: object
+      properties:
+        code: { type: string, description: Error code (e.g., INVALID_PROBABILITY) }
+        message: { type: string, description: Human-readable error message }
+      required: [code, message]
+      example:
+        code: "INVALID_PROBABILITY"
+        message: "Probabilities must sum to 100%"
+
+security:
+  - BearerAuth: []
+
+paths:
+  /dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: Retrieve dashboard statistics
+      description: Provides aggregated stats including total users, prizes, gacha, admins, points sold, and usage metrics (today/week/month).
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - total_users
+                  - total_prizes
+                  - total_gacha
+                  - total_admins
+                  - points_sold
+                  - usage
+                properties:
+                  total_users: { type: integer, description: Total registered users }
+                  total_prizes: { type: integer, description: Total available prizes }
+                  total_gacha: { type: integer, description: Total active gacha }
+                  total_admins: { type: integer, description: Total active admins }
+                  points_sold:
+                    type: object
+                    description: Points spent on gacha pulls
+                    properties:
+                      today: { type: number }
+                      week: { type: number }
+                      month: { type: number }
+                      last_month: { type: number }
+                  usage:
+                    type: object
+                    description: Pull counts from Win table
+                    properties:
+                      today: { type: integer }
+                      week: { type: integer }
+                      month: { type: integer }
+              examples:
+                sample:
+                  value:
+                    total_users: 1000
+                    total_prizes: 50
+                    total_gacha: 10
+                    total_admins: 5
+                    points_sold: { today: 1000, week: 5000, month: 20000, last_month: 18000 }
+                    usage: { today: 100, week: 500, month: 2000 }
+        '401':
+          description: Unauthorized
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  /gacha:
+    get:
+      tags: [Gacha]
+      summary: List gacha
+      description: Returns paginated list of gacha with optional filters.
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1, minimum: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: ["now-available", "private", "schedule-release"]
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated gacha list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Gacha' }
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+              examples:
+                page1:
+                  value:
+                    data:
+                      - id: "123e4567-e89b-12d3-a456-426614174000"
+                        name: "Summer Event Gacha"
+                        explanation: "Limited-time gacha with exclusive prizes"
+                        banner: "https://example.com/banners/summer.jpg"
+                        discharge_method: "probability"
+                        status: "now-available"
+                        max_times_per_user: 100
+                        daily_limit: 10
+                        total_limit: 1000
+                        start_date: "2025-10-01T00:00:00Z"
+                        end_date: "2025-10-31T23:59:59Z"
+                        number_used: 50
+                        total_points_sold: 5000.0
+                    meta: { page: 1, limit: 20, total: 1, has_next: false }
+
+    post:
+      tags: [Gacha]
+      summary: Create a new gacha
+      description: |
+        Creates a gacha with associated prizes. Validates probabilities (must sum to 100% for probability/hybrid methods)
+        and stock (-1 for infinite). Logs creation in AdminLog for compliance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, discharge_method, status, start_date, end_date, prizes]
+              properties:
+                name: { type: string }
+                explanation: { type: string, nullable: true }
+                banner: { type: string, nullable: true }
+                discharge_method: { type: string, enum: ["probability", "sequential", "hybrid"] }
+                status: { type: string, enum: ["now-available", "private", "schedule-release"] }
+                max_times_per_user: { type: integer, nullable: true }
+                daily_limit: { type: integer, nullable: true }
+                total_limit: { type: integer, nullable: true }
+                start_date: { type: string, format: date-time }
+                end_date: { type: string, format: date-time }
+                prizes:
+                  type: array
+                  items:
+                    type: object
+                    required: [prize_id]
+                    properties:
+                      prize_id: { type: string, format: uuid }
+                      probability: { type: number, format: float, nullable: true }
+                      sequential: { type: integer, nullable: true }
+                      is_hybrid: { type: boolean, default: false }
+            examples:
+              sample:
+                value:
+                  name: "Summer Event Gacha"
+                  explanation: "Limited-time gacha with exclusive prizes"
+                  banner: "https://example.com/banners/summer.jpg"
+                  discharge_method: "probability"
+                  status: "now-available"
+                  max_times_per_user: 100
+                  daily_limit: 10
+                  total_limit: 1000
+                  start_date: "2025-10-01T00:00:00Z"
+                  end_date: "2025-10-31T23:59:59Z"
+                  prizes:
+                    - prize_id: "456e7890-e89b-12d3-a456-426614174002"
+                      probability: 0.2
+                      is_hybrid: false
+                    - prize_id: "789e1234-e89b-12d3-a456-426614174003"
+                      probability: 0.3
+                      is_hybrid: false
+      responses:
+        '201':
+          description: Gacha created successfully
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gacha' }
+        '400':
+          description: Invalid input (e.g., probabilities not summing to 100%)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '401':
+          description: Unauthorized
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  /gacha/{id}:
+    get:
+      tags: [Gacha]
+      summary: Get gacha by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Gacha details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gacha' }
+        '404':
+          description: Not found
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+    put:
+      tags: [Gacha]
+      summary: Update gacha by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Gacha'
+            examples:
+              sample:
+                value:
+                  name: "Summer Event Gacha (Updated)"
+                  status: "private"
+                  daily_limit: 5
+      responses:
+        '200':
+          description: Gacha updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Gacha' }
+        '400':
+          description: Validation error
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '404':
+          description: Not found
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+    delete:
+      tags: [Gacha]
+      summary: Delete gacha by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted successfully
+        '404':
+          description: Not found
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  /gacha/{id}/draw:
+    post:
+      tags: [Gacha]
+      summary: Perform a draw (mockable)
+      description: Simulates a single draw against a gacha. Returns a Win result containing the prize.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_id:
+                  type: string
+                  format: uuid
+                client_seed:
+                  type: string
+                  description: Optional client seed for deterministic testing
+            example:
+              user_id: "999e1111-e89b-12d3-a456-426614170000"
+              client_seed: "test-seed-123"
+      responses:
+        '200':
+          description: Draw result
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Win' }
+              examples:
+                win:
+                  value:
+                    gacha_id: "123e4567-e89b-12d3-a456-426614174000"
+                    prize:
+                      id: "456e7890-e89b-12d3-a456-426614174002"
+                      name: "Plush Dragon"
+                      image: "https://example.com/prizes/dragon.png"
+                      rarity: "rare"
+                      stock: 119
+                      attributes: { color: "green", size: "M" }
+                    draw_id: "a1b2c3d4-e89b-12d3-a456-426614174099"
+                    result: "win"
+                    message: "Congratulations! You won Plush Dragon"
+        '400':
+          description: Draw not allowed (limits exceeded, schedule not active, etc.)
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+        '404':
+          description: Gacha not found
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+
+  /prizes:
+    get:
+      tags: [Prizes]
+      summary: List prizes
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 20 }
+        - in: query
+          name: rarity
+          schema: { type: string, enum: ["common", "rare", "super-rare", "ultra-rare"] }
+        - in: query
+          name: search
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated list of prizes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Prize' }
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+              examples:
+                example:
+                  value:
+                    data:
+                      - id: "456e7890-e89b-12d3-a456-426614174002"
+                        name: "Plush Dragon"
+                        image: "https://example.com/prizes/dragon.png"
+                        rarity: "rare"
+                        stock: 120
+                        attributes: { color: "green", size: "M" }
+                    meta: { page: 1, limit: 20, total: 1, has_next: false }
+
+    post:
+      tags: [Prizes]
+      summary: Create a prize
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/Prize'
+            examples:
+              example:
+                value:
+                  name: "Legendary Sword"
+                  image: "https://example.com/prizes/legendary-sword.png"
+                  rarity: "ultra-rare"
+                  stock: 10
+                  attributes:
+                    atk: 120
+                    element: "fire"
+      responses:
+        '201':
+          description: Prize created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Prize' }
+        '400':
+          description: Validation error
+          content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
