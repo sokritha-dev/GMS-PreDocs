@@ -1,0 +1,12 @@
+XRequestId:
+  description: Correlation id echoed back by the server
+  schema: { type: string, example: "req_8f2e1e" }
+CacheControl:
+  description: Cache policy for this response
+  schema: { type: string, example: "public, max-age=30, stale-while-revalidate=30" }
+ETag:
+  description: Entity tag for conditional requests
+  schema: { type: string, example: 'W/"gacha-123e4567-e89b-12d3-a456-426614174000-v1"' }
+Location:
+  description: URL of the created resource
+  schema: { type: string, format: uri, example: "gacha/123e4567-e89b-12d3-a456-426614174000" }

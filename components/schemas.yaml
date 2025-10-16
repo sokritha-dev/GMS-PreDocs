@@ -1,0 +1,934 @@
+SuccessBase:
+  type: object
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [success, error]
+    message:
+      type: string
+      nullable: true
+    meta:
+      nullable: true
+    data:
+      nullable: true
+ErrorEnvelope:
+  allOf:
+    - $ref: '#/SuccessBase'
+    - type: object
+      required: [status, code, message]
+      properties:
+        status:
+          type: string
+          enum: [error]
+        code:
+          type: string
+          enum: [INVALID_INPUT, UNAUTHORIZED, NOT_FOUND, INVALID_PROBABILITY]
+        message:
+          type: string
+        detail:
+          nullable: true
+PaginationMeta:
+  type: object
+  required: [page, limit, total, has_next]
+  properties:
+    page:
+      type: integer
+      minimum: 1
+    limit:
+      type: integer
+      minimum: 1
+    total:
+      type: integer
+      minimum: 0
+    has_next:
+      type: boolean
+
+
+# ========================
+# Dashboard Feature
+# ========================
+StatsMeta:
+  type: object
+  required: [generatedAt, timezone, apiVersion, requestId, cacheMaxAge]
+  properties:
+    generatedAt:
+      type: string
+      format: date-time
+    timezone:
+      type: string
+      example: "Asia/Phnom_Penh"
+    apiVersion:
+      type: string
+      example: "1.0.0"
+    requestId:
+      type: string
+      example: "req_8f2e1e"
+    cacheMaxAge:
+      type: integer
+      minimum: 0
+      example: 30
+RecentWinsMeta:
+  type: object
+  required: [generatedAt, timezone, apiVersion, requestId]
+  properties:
+    generatedAt:
+      type: string
+      format: date-time
+    timezone:
+      type: string
+      example: "Asia/Phnom_Penh"
+    apiVersion:
+      type: string
+      example: "1.0.0"
+    requestId:
+      type: string
+      example: "req_8f2e1e"
+PopularListMeta:
+  type: object
+  required: [generatedAt, timezone, apiVersion, requestId, cacheMaxAge, partial]
+  properties:
+    generatedAt:
+      type: string
+      format: date-time
+    timezone:
+      type: string
+      example: "Asia/Phnom_Penh"
+    apiVersion:
+      type: string
+      example: "1.0.0"
+    requestId:
+      type: string
+      example: "req_1ab2cd"
+    cacheMaxAge:
+      type: integer
+      minimum: 0
+      example: 300
+    partial:
+      type: object
+      properties:
+        list:
+          type: boolean
+StatsEntity:
+  type: object
+  required: [totalUsers, packsOpenedThisMonth, currentGachaAvailable, totalAdmins, sales]
+  properties:
+    totalUsers:
+      type: object
+      required: [value, monthToMonthPercentage]
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          example: 12943
+        monthToMonthPercentage:
+          type: number
+          format: float
+          example: 5.2
+          description: Percentage change in total users compared to the previous month (positive for increase, negative for decrease)
+    packsOpenedThisMonth:
+      type: object
+      required: [value, monthToMonthPercentage]
+      properties:
+        value:
+          type: integer
+          minimum: 0
+          example: 8421
+        monthToMonthPercentage:
+          type: number
+          format: float
+          example: -2.7
+          description: Percentage change in packs opened compared to the previous month (positive for increase, negative for decrease)
+    currentGachaAvailable:
+      type: integer
+      minimum: 0
+      example: 37
+    totalAdmins:
+      type: integer
+      minimum: 0
+      example: 5
+    sales:
+      type: object
+      required: [currency, today, thisWeek, thisMonth, lastMonth]
+      properties:
+        currency:
+          type: string
+          example: "USD"
+        today:
+          type: object
+          required: [value, dayToDayPercentage]
+          properties:
+            value:
+              type: number
+              format: float
+              minimum: 0
+              example: 582.5
+            dayToDayPercentage:
+              type: number
+              format: float
+              example: 10.3
+              description: Percentage change in today's sales compared to yesterday (positive for increase, negative for decrease)
+        thisWeek:
+          type: object
+          required: [value, weekToWeekPercentage]
+          properties:
+            value:
+              type: number
+              format: float
+              minimum: 0
+              example: 3124.4
+            weekToWeekPercentage:
+              type: number
+              format: float
+              example: 8.1
+              description: Percentage change in this week's sales compared to last week (positive for increase, negative for decrease)
+        thisMonth:
+          type: object
+          required: [value, monthToMonthPercentage]
+          properties:
+            value:
+              type: number
+              format: float
+              minimum: 0
+              example: 12894.1
+            monthToMonthPercentage:
+              type: number
+              format: float
+              example: 13.1
+              description: Percentage change in this month's sales compared to last month (positive for increase, negative for decrease)
+        lastMonth:
+          type: object
+          required: [value, monthToPreviousMonthPercentage]
+          properties:
+            value:
+              type: number
+              format: float
+              minimum: 0
+              example: 11402.7
+            monthToPreviousMonthPercentage:
+              type: number
+              format: float
+              example: -4.5
+              description: Percentage change in last month's sales compared to the month before last (positive for increase, negative for decrease)
+RecentWinsEntity:
+  type: array
+  items:
+    type: object
+    required: [id, time, gachaId, gachaName, prizeName, userDisplay]
+    properties:
+      id:
+        type: string
+        example: "hist_92af"
+      time:
+        type: string
+        format: date-time
+        example: "2025-10-16T12:08:00Z"
+      gachaId:
+        type: string
+        example: "g_123"
+      gachaName:
+        type: string
+        example: "Autumn Lucky Box"
+      prizeName:
+        type: string
+        example: "SSR Dragon"
+      userDisplay:
+        type: string
+        example: "user_7***"
+PopularListEntity:
+  type: object
+  required: [window, align, endAt, by, items, page]
+  properties:
+    window:
+      type: string
+      example: "7d"
+    align:
+      type: string
+      enum: [calendar, rolling]
+      example: "calendar"
+    endAt:
+      type: string
+      format: date-time
+      example: "2025-10-16T12:08:00Z"
+    by:
+      type: string
+      enum: [number_used, total_point]
+      example: "number_used"
+    items:
+      type: array
+      items:
+        type: object
+        required: [rank, gachaId, gachaName, numberUsed, totalPoint]
+        properties:
+          rank:
+            type: integer
+            minimum: 1
+            example: 1
+          gachaId:
+            type: string
+            example: "g_123"
+          gachaName:
+            type: string
+            example: "Autumn Lucky Box"
+          numberUsed:
+            type: integer
+            minimum: 0
+            example: 486
+          totalPoint:
+            type: integer
+            minimum: 0
+            example: 21400
+    page:
+      $ref: '#/PaginationMeta'
+
+
+# ========================
+# Gacha Feature
+# ========================
+GachaEntity:
+  type: object
+  required: [id, name, explanation, banner, draw_type, status, number_used, total_points_sold]
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    name:
+      type: string
+      example: "Summer Event Gacha"
+    explanation:
+      type: string
+      example: "Limited-time gacha with exclusive prizes"
+    banner:
+      type: string
+      format: uri
+      example: "https://example.com/banners/summer.jpg"
+    draw_type:
+      type: string
+      enum: [probability, sequential, hybrid]
+      example: "probability"
+    status:
+      type: string
+      enum: [draft, schedule-release, now-available, ended, suspended]
+      example: "now-available"
+    price:
+      type: number
+      example: 165
+    daily_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 10
+    total_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 1000
+    start_date:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-01T00:00:00Z"
+    end_date:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-31T23:59:59Z"
+    number_used:
+      type: integer
+      minimum: 0
+      example: 50
+    total_points_sold:
+      type: integer
+      minimum: 0
+      example: 5000
+GachaHistoryListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/GachaHistoryItem' }
+    page:
+      $ref: '#/PaginationMeta'
+GachaHistoryItem:
+  type: object
+  required: [id, time, user, gacha, result, points]
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "hist-123e4567-e89b-12d3-a456-426614174000"
+      description: Unique identifier for the history event
+    time:
+      type: string
+      format: date-time
+      example: "2025-10-16T20:17:00Z"
+      description: ISO 8601 date-time of the event (UTC)
+    user:
+      type: string
+      example: "testuser"
+      description: Username of the user who performed the event
+    gacha:
+      type: string
+      example: "Autumn Lucky Box"
+      description: Name of the gacha
+    result:
+      type: string
+      example: "SSR Dragon Egg"
+      description: Prize name for wins; 'no prize' for plays without a win
+    points:
+      type: string
+      example: "100.0"
+      description: Points spent on the event, as a string
+GachaCreateForm:
+  type: object
+  required: [name, explanation, banner, draw_type, price, total_limit]
+  properties:
+    name:
+      type: string
+      maxLength: 255
+      example: "Summer Event Gacha"
+    explanation:
+      type: string
+      example: "Limited-time gacha with exclusive prizes"
+    banner:
+      type: string
+      format: binary
+      description: "Image file (max 5MB, image/*)"
+    price:
+      type: number
+      example: 165
+    draw_type:
+      type: string
+      enum: [probability, sequential, hybrid]
+      example: "probability"
+    total_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 1000
+GachaUpdateBasicForm:
+  type: object
+  properties:
+    name:
+      type: string
+      maxLength: 255
+      example: "Autumn Lucky Box (Revamped)"
+    explanation:
+      type: string
+      example: "Copy and art refreshed for mid-season"
+    banner:
+      type: string
+      format: binary
+      description: "Image file (max 5MB, image/*)"
+    price:
+      type: number
+      example: 165
+    draw_type:
+      type: string
+      enum: [probability, sequential, hybrid]
+      example: "probability"
+    total_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 1000
+GachaUpdateSettingsForm:
+  type: object
+  properties:
+    draw_type:
+      type: string
+      enum: [probability, sequential, hybrid]
+      example: "probability"
+    status:
+      type: string
+      enum: [draft, schedule-release, now-available, ended, suspended]
+      example: "schedule-release"
+    start_date:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-10T00:00:00Z"
+    end_date:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-31T23:59:59Z"
+    daily_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 20
+    total_limit:
+      type: integer
+      minimum: 1
+      nullable: true
+      example: 1000
+
+
+# ========================
+# Prize Feature
+# ========================
+PrizeEntity:
+  type: object
+  required: [id, gachaId, name, rarity, probability, stock, imageUrl, wins, winRate, recentWins]
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "9f2bb7e4-4d9a-4c0f-8d0a-6a4d0f4a3e21"
+    gachaId:
+      type: string
+      format: uuid
+      example: "123e4567-e89b-12d3-a456-426614174000"
+    name:
+      type: string
+      example: "SSR Dragon Egg"
+    rarity:
+      type: string
+      enum: [c, r, sr, ur]
+      example: "ur"
+    probability:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 100
+      nullable: true
+      example: 0.5
+    round: # For Hybrid Setting
+      type: number
+      nullable: true
+      example: 10
+    position: # For Fixed Setting
+      type: number
+      nullable: true
+      example: 1
+    stock:
+      type: string
+      example: positive number, infinite, inf
+    imageUrl:
+      type: string
+      format: uri
+      example: "https://cdn.example.com/prizes/dragon-egg.webp"
+    wins:
+      type: integer
+      minimum: 0
+      example: 12
+    winRate:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 1
+      example: 0.48
+    recentWins:
+      type: array
+      items:
+        type: object
+        required: [id, time, userDisplay]
+        properties:
+          id:
+            type: string
+            example: "hist_92af"
+          time:
+            type: string
+            format: date-time
+            example: "2025-10-03T01:23:45Z"
+          userDisplay:
+            type: string
+            example: "user_7***"
+PrizeListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/PrizeEntity' }
+    page:
+      $ref: '#/PaginationMeta'
+PrizeCreateForm:
+  type: object
+  required: [name, rarity, probability, stock, image]
+  properties:
+    name:
+      type: string
+      maxLength: 255
+      example: "SSR Dragon Egg"
+    rarity:
+      type: string
+      enum: [c, r, sr, ur]
+      example: "ur"
+    probability:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 100
+      nullable: true
+      example: 0.5
+    round: # For Hybrid Setting
+      type: number
+      nullable: true
+      example: 10
+    position: # For Fixed Setting
+      type: number
+      nullable: true
+      example: 1
+    stock:
+      type: string
+      example: positive number, infinite, inf
+    image:
+      type: string
+      format: binary
+      description: "Image file (max 5MB, image/*)"
+PrizeUpdateForm:
+  type: object
+  properties:
+    name:
+      type: string
+      maxLength: 255
+      example: "SSR Dragon Egg (Alt Art)"
+    rarity:
+      type: string
+      enum: [c, r, sr, ur]
+      example: "ur"
+    probability:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 100
+      nullable: true
+      example: 0.5
+    round: # For Hybrid Setting
+      type: number
+      nullable: true
+      example: 10
+    position: # For Fixed Setting
+      type: number
+      nullable: true
+      example: 1
+    stock:
+      type: string
+      example: positive number, infinite, inf
+    image:
+      type: string
+      format: binary
+      description: "Image file (max 5MB, image/*)"
+PrizeCsvImportResult:
+  type: object
+  required: [total, success, failed, errors]
+  properties:
+    total:
+      type: integer
+      minimum: 0
+      example: 5
+    success:
+      type: integer
+      minimum: 0
+      example: 4
+    failed:
+      type: integer
+      minimum: 0
+      example: 1
+    errors:
+      type: array
+      items:
+        type: object
+        required: [row, code, message]
+        properties:
+          row:
+            type: integer
+            minimum: 1
+            example: 3
+          code:
+            type: string
+            example: "INVALID_PROBABILITY"
+          message:
+            type: string
+            example: "probability must be between 0 and 100"
+          detail:
+            type: object
+            nullable: true
+            example: { value: 120 }
+
+
+# ========================
+# User Feature
+# ========================
+UserListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/UserSummary' }
+    page:
+      $ref: '#/PaginationMeta'
+UserSummary:
+  type: object
+  required: [id, username, points_balance, number_of_plays, last_login]
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "user-123e4567-e89b-12d3-a456-426614174000"
+    username:
+      type: string
+      example: "testuser"
+    points_balance:
+      type: number
+      format: float
+      minimum: 0
+      example: 1000.0
+    number_of_plays:
+      type: integer
+      minimum: 0
+      example: 50
+    last_login:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-16T12:08:00Z"
+WinHistoryListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/WinHistoryItem' }
+    page:
+      $ref: '#/PaginationMeta'
+WinHistoryItem:
+  type: object
+  required: [win_date, gacha_name, prize_name, point_paid]
+  properties:
+    win_date:
+      type: string
+      format: date-time
+      example: "2025-10-16T12:08:00Z"
+    gacha_name:
+      type: string
+      example: "Autumn Lucky Box"
+    prize_name:
+      type: string
+      example: "SSR Dragon Egg"
+    point_paid:
+      type: number
+      format: float
+      example: 100
+
+
+# ========================
+# Log Feature
+# ========================
+AdminLogListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/AdminLogItem' }
+    page:
+      $ref: '#/PaginationMeta'
+AdminLogItem:
+  type: object
+  required: [datetime, admin_name, operation_detail, subject, ip_address]
+  properties:
+    datetime:
+      type: string
+      format: date-time
+      example: "2025-10-16T20:34:00Z"
+      description: ISO 8601 date-time of the admin action (UTC)
+    admin_name:
+      type: string
+      example: "admin1"
+      description: Username of the admin who performed the action
+    operation_detail:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [pack-creation, change-gacha-setting, add-point, deduct-point]
+          example: "pack-creation"
+          description: Type of operation performed
+        details:
+          type: object
+          nullable: true
+          example: { "gachaId": "gacha-123e4567-e89b-12d3-a456-426614174000", "packName": "Summer Pack" }
+          description: Additional details about the operation, if applicable
+      description: Details of the admin operation
+    subject:
+      type: string
+      example: "gacha:gacha-123e4567-e89b-12d3-a456-426614174000"
+      description: Identifier of the affected entity (e.g., gacha:gachaId, user:userId)
+    ip_address:
+      type: string
+      format: ipv4
+      example: "192.168.1.1"
+      description: IP address of the admin's request
+
+GachaLogListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/GachaLogItem' }
+    page:
+      $ref: '#/PaginationMeta'
+GachaLogItem:
+  type: object
+  required: [datetime, username, gacha_name, prize_name, probability, random_value]
+  properties:
+    datetime:
+      type: string
+      format: date-time
+      example: "2025-10-16T20:34:00Z"
+      description: ISO 8601 date-time of the gacha event (UTC)
+    username:
+      type: string
+      example: "testuser"
+      description: Username of the player
+    gacha_name:
+      type: string
+      example: "Autumn Lucky Box"
+      description: Name of the gacha
+    prize_name:
+      type: string
+      nullable: true
+      example: "SSR Dragon Egg"
+      description: Name of the prize won, or null if no prize
+    probability:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 1
+      example: 0.05
+      description: Probability of the outcome (0 to 1)
+    random_value:
+      type: number
+      format: float
+      minimum: 0
+      maximum: 1
+      example: 0.827
+      description: Random value generated for the gacha roll
+
+# ========================
+# Admin Feature
+# ========================
+AdminListEntity:
+  type: object
+  required: [items, page]
+  properties:
+    items:
+      type: array
+      items: { $ref: '#/AdminSummary' }
+    page:
+      $ref: '#/PaginationMeta'
+AdminSummary:
+  type: object
+  required: [id, name, email, authority, last_login, status]
+  properties:
+    id:
+      type: string
+      format: uuid
+      example: "admin-123e4567-e89b-12d3-a456-426614174000"
+      description: Unique identifier for the admin
+    name:
+      type: string
+      example: "Admin One"
+      description: Display name of the admin
+    email:
+      type: string
+      format: email
+      example: "admin1@example.com"
+      description: Email address of the admin
+    authority:
+      type: string
+      enum: [super_admin, admin, operator, viewer]
+      example: "admin"
+      description: Authority level of the admin
+    last_login:
+      type: string
+      format: date-time
+      nullable: true
+      example: "2025-10-16T20:49:00Z"
+      description: ISO 8601 date-time of the admin's last login
+    status:
+      type: string
+      enum: [valid, invalid]
+      example: "valid"
+      description: Status of the admin account
+AdminCreateRequest:
+  type: object
+  required: [admin_id, name, email, authority, password]
+  properties:
+    admin_id:
+      type: string
+      format: uuid
+      example: "admin-123e4567-e89b-12d3-a456-426614174000"
+      description: Unique identifier for the new admin
+    name:
+      type: string
+      example: "Admin One"
+      description: Display name for the admin
+    email:
+      type: string
+      format: email
+      example: "admin1@example.com"
+      description: Email address for the admin
+    authority:
+      type: string
+      enum: [super_admin, admin, operator, viewer]
+      example: "admin"
+      description: Authority level for the admin
+    password:
+      type: string
+      example: "securePassword123"
+      description: Password for the admin (will be hashed)
+AdminEditRequest:
+  type: object
+  required: []
+  properties:
+    name:
+      type: string
+      example: "Admin One Updated"
+      description: Updated display name for the admin
+    email:
+      type: string
+      format: email
+      example: "admin1.updated@example.com"
+      description: Updated email address for the admin
+    authority:
+      type: string
+      enum: [super_admin, admin, operator, viewer]
+      example: "operator"
+      description: Updated authority level for the admin
+AdminStatusRequest:
+  type: object
+  required: [status]
+  properties:
+    status:
+      type: string
+      enum: [valid, invalid]
+      example: "invalid"
+      description: New status for the admin account
+PointOperationRequest:
+  type: object
+  required: [number_of_points, operation, reason]
+  properties:
+    number_of_points:
+      type: number
+      format: float
+      minimum: 0
+      example: 100.0
+      description: Number of points to add, deduct, or set
+    operation:
+      type: string
+      enum: [add_point, deduct_point, set_points]
+      example: "add_point"
+      description: Type of point operation
+    reason:
+      type: string
+      example: "Bonus for event participation"
+      description: Reason for the point operation

@@ -1,0 +1,12 @@
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: header
+      name: X-Session-ID
+      description: Session ID provided after successful login
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionId
+      description: Session ID stored in a cookie after successful login

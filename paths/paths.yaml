@@ -1,0 +1,1784 @@
+# ========================
+# Dashboard Feature
+# ========================
+
+/dashboard/stats:
+  get:
+    tags: [Dashboard]
+    summary: Retrieve dashboard statistics
+    description: Provides aggregated metrics including total users, packs opened, available gacha, admins, and sales (today/week/month) with percentage comparisons.
+    responses:
+      "200":
+        description: OK
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Cache-Control: { $ref: '../components/headers.yaml#/CacheControl' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { $ref: '../components/schemas.yaml#/StatsMeta' }
+                    data: { $ref: '../components/schemas.yaml#/StatsEntity' }
+            examples:
+              ok:
+                value:
+                  status: success
+                  message: null
+                  meta:
+                    generatedAt: "2025-10-16T12:08:00Z"
+                    timezone: "Asia/Phnom_Penh"
+                    apiVersion: "1.0.0"
+                    requestId: "req_8f2e1e"
+                    cacheMaxAge: 30
+                  data:
+                    totalUsers:
+                      value: 12943
+                      monthToMonthPercentage: 5.2
+                    packsOpenedThisMonth:
+                      value: 8421
+                      monthToMonthPercentage: -2.7
+                    currentGachaAvailable: 37
+                    totalAdmins: 5
+                    sales:
+                      currency: "USD"
+                      today:
+                        value: 582.5
+                        dayToDayPercentage: 10.3
+                      thisWeek:
+                        value: 3124.4
+                        weekToWeekPercentage: 8.1
+                      thisMonth:
+                        value: 12894.1
+                        monthToMonthPercentage: 13.1
+                      lastMonth:
+                        value: 11402.7
+                        monthToPreviousMonthPercentage: -4.5
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid token", detail: null }
+/dashboard/recent-wins:
+  get:
+    tags: [Dashboard]
+    summary: Recent wins stream (SSE)
+    description: |
+      Server-Sent Events stream of recent gacha wins.
+      - Content-Type: text/event-stream
+      - Auto-reconnect recommended on the client
+      - One-way (server → client). Use WebSocket if you need bi-directional.
+      - Pass sessionId in query parameter if cookies are not sent by the client.
+    security:
+      - BearerAuth: []
+    responses:
+      "200":
+        description: text/event-stream
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Cache-Control:
+            description: Typically "no-cache"
+            schema: { type: string, example: "no-cache" }
+          Connection:
+            schema: { type: string }
+            description: "keep-alive"
+        content:
+          text/event-stream:
+            schema:
+              type: string
+              description: Stream of SSE events
+            examples:
+              eventFrame:
+                summary: Example SSE frame
+                value: |
+                  event: recent_win
+                  data: {"id":"hist_92af","time":"2025-10-16T12:08:00Z","gachaId":"g_123","gachaName":"Autumn Lucky Box","prizeName":"SSR Dragon","userDisplay":"user_7***"}
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid token", detail: null }
+/dashboard/popular:
+  get:
+    tags: [Dashboard]
+    summary: Popular gacha over a time window
+    description: |
+      Returns popular gacha ranked by plays or points over a recent time window.
+      - `window` supports values like `1d`, `7d`, `30d`, `24h`.
+      - `align=calendar` uses local-day boundaries (Asia/Phnom_Penh).
+      - `align=rolling` uses a strict trailing window from `endAt` (or now).
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: query
+        name: by
+        required: true
+        schema: { type: string, enum: [number_used, total_point] }
+        example: number_used
+      - in: query
+        name: window
+        required: false
+        schema:
+          type: string
+          pattern: '^[1-9][0-9]*[hd]$'
+          example: "7d"
+          default: "7d"
+        description: e.g., 1d, 7d, 30d, 24h
+      - in: query
+        name: align
+        required: false
+        schema: { type: string, enum: [calendar, rolling], default: calendar }
+        description: calendar = align to local midnight; rolling = strict trailing window
+      - in: query
+        name: endAt
+        required: false
+        schema: { type: string, format: date-time }
+        description: Anchor time (UTC). Defaults to server now.
+      - in: query
+        name: limit
+        schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+      - in: query
+        name: offset
+        schema: { type: integer, minimum: 0, default: 0 }
+    responses:
+      "200":
+        description: OK
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Cache-Control: { $ref: '../components/headers.yaml#/CacheControl' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { $ref: '../components/schemas.yaml#/PopularListMeta' }
+                    data: { $ref: '../components/schemas.yaml#/PopularListEntity' }
+            examples:
+              sample:
+                value:
+                  status: success
+                  message: null
+                  meta:
+                    generatedAt: "2025-10-16T12:08:00Z"
+                    timezone: "Asia/Phnom_Penh"
+                    apiVersion: "1.0.0"
+                    requestId: "req_1ab2cd"
+                    cacheMaxAge: 300
+                    partial: { list: false }
+                  data:
+                    window: "7d"
+                    align: "calendar"
+                    endAt: "2025-10-16T12:08:00Z"
+                    by: "number_used"
+                    items:
+                      - rank: 1
+                        gachaId: "g_123"
+                        gachaName: "Autumn Lucky Box"
+                        numberUsed: 486
+                        totalPoint: 21400
+                      - rank: 2
+                        gachaId: "g_777"
+                        gachaName: "Neon Night"
+                        numberUsed: 441
+                        totalPoint: 19800
+                    page: { page: 1, limit: 20, total: 1, has_next: false }
+      "401":
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+
+# ========================
+# Gacha Feature
+# ========================
+
+/gacha:
+  get:
+    tags: [Gacha]
+    summary: List gacha
+    description: Returns paginated list of gacha with pagination.
+    parameters:
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    responses:
+      '200':
+        description: Paginated gacha list
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta:
+                      type: string
+                      nullable: true
+                    data:
+                      type: object
+                      required: [items, page]
+                      properties:
+                        items:
+                          type: array
+                          items: { $ref: '../components/schemas.yaml#/GachaEntity' }
+                        page:
+                          $ref: '../components/schemas.yaml#/PaginationMeta'
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "123e4567-e89b-12d3-a456-426614174000"
+                        name: "Summer Event Gacha"
+                        explanation: "Limited-time gacha with exclusive prizes"
+                        banner: "https://example.com/banners/summer.jpg"
+                        draw_type: "probability"
+                        status: "now-available"
+                        daily_limit: 10
+                        total_limit: 1000
+                        start_date: "2025-10-01T00:00:00Z"
+                        end_date: "2025-10-31T23:59:59Z"
+                        number_used: 50
+                        total_points_sold: 5000
+                    page: { page: 1, limit: 20, total: 1, has_next: false }
+  post:
+    tags: [Gacha]
+    summary: Create a new gacha
+    description: |
+      Creates a gacha and uploads a banner image.
+      - On success, response `banner` is the final URL.
+    security:
+      - BearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../components/schemas.yaml#/GachaCreateForm'
+    responses:
+      '201':
+        description: Gacha created successfully
+        headers:
+          Location: { $ref: '../components/headers.yaml#/Location' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta:
+                      type: string
+                      nullable: true
+                    data: { $ref: '../components/schemas.yaml#/GachaEntity' }
+            examples:
+              created:
+                value:
+                  status: success
+                  message: "Successfully create a new gacha."
+                  meta: null
+                  data:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    name: "Summer Event Gacha"
+                    explanation: "Limited-time gacha with exclusive prizes"
+                    banner: "https://cdn.example.com/banners/summer.webp"
+                    draw_type: "probability"
+                    status: "draft"
+                    daily_limit: null
+                    total_limit: null
+                    start_date: null
+                    end_date: null
+                    number_used: 0
+                    total_points_sold: 0
+      '400':
+        description: Validation error (e.g., invalid file)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              bad:
+                value: { status: error, code: INVALID_INPUT, message: "Invalid field provided.", detail: [ {"banner" : "A banner image cannot be more than 5mb."}] }
+      '401':
+        description: Unauthorized
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              bad:
+                value: { status: error, code: UNAUTHORIZED, message: "You are not allowed to create this resource.", detail: null}
+/gacha/{gachaId}:
+  patch:
+    tags: [Gacha]
+    summary: Update gacha basic info
+    description: |
+      Partial update of basic, human-facing fields (name, explanation, banner).
+      - Use multipart/form-data if changing `banner`. If you only change text fields, you can still send as multipart with just those parts.
+      - Supports optimistic concurrency via `If-Match` header.
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: header
+        name: If-Match
+        required: false
+        schema: { type: string }
+        description: ETag from a prior GET response
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            $ref: '../components/schemas.yaml#/GachaUpdateBasicForm'
+    responses:
+      '200':
+        description: Updated
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Location: { $ref: '../components/headers.yaml#/Location' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/GachaEntity' }
+            examples:
+              updated:
+                value:
+                  status: success
+                  message: "Successfully updated the resource."
+                  meta: null
+                  data:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    name: "Autumn Lucky Box (Revamped)"
+                    explanation: "Copy and art refreshed for mid-season"
+                    banner: "https://cdn.example.com/banners/autumn.webp"
+                    draw_type: "probability"
+                    status: "now-available"
+                    daily_limit: 10
+                    total_limit: 1000
+                    start_date: "2025-10-01T00:00:00Z"
+                    end_date: "2025-10-31T23:59:59Z"
+                    number_used: 50
+                    total_points_sold: 5000
+      '400':
+        description: Validation error (e.g., invalid file)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              badBanner:
+                value: { status: error, code: INVALID_INPUT, message: "banner must be image/*", detail: null }
+      '401':
+        description: Unauthorized
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              bad:
+                value: { status: error, code: UNAUTHORIZED, message: "You are not allowed to create this resource.", detail: null}
+      '404':
+        description: Not found
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' } 
+            examples:
+              bad:
+                value: { status: error, code: NOT_FOUND, message: "This resource does not exist.", detail: null}
+      '412':
+        description: Precondition Failed (ETag mismatch)
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              etagMismatch:
+                value: { status: error, code: INVALID_INPUT, message: "ETag mismatch", detail: "resource modified" }
+/gacha/{gachaId}/settings:
+  patch:
+    tags: [Gacha]
+    summary: Update gacha settings
+    description: |
+      Update operational settings:
+      - draw type (discharge method)
+      - public status
+      - start/end date
+      - daily/total limits
+      Server validates date ranges and limit constraints.
+    security:
+      - BearerAuth: []
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: header
+        name: If-Match
+        required: false
+        schema: { type: string }
+        description: ETag from a prior GET response
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '../components/schemas.yaml#/GachaUpdateSettingsForm'
+    responses:
+      '200':
+        description: Updated
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Location: { $ref: '../components/headers.yaml#/Location' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/GachaEntity' }
+            examples:
+              updated:
+                value:
+                  status: success
+                  message: "Successfully updated the resource."
+                  meta: null
+                  data:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    name: "Autumn Lucky Box (Revamped)"
+                    explanation: "Copy and art refreshed for mid-season"
+                    banner: "https://cdn.example.com/banners/autumn.webp"
+                    draw_type: "probability"
+                    status: "schedule-release"
+                    start_date: "2025-10-10T00:00:00Z"
+                    end_date: "2025-10-31T23:59:59Z"
+                    daily_limit: 20
+                    total_limit: 1000
+                    number_used: 50
+                    total_points_sold: 5000
+      '400':
+        description: Invalid settings (e.g., date/limit rules)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              badDates:
+                value: { status: error, code: INVALID_INPUT, message: "start_date must be before end_date", detail: null }
+              probability:
+                value: { status: error, code: INVALID_PROBABILITY, message: "probabilities must sum to 100%", detail: "pool A=60,B=30,C=20" }
+      '401':
+        description: Unauthorized
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              bad:
+                value: { status: error, code: UNAUTHORIZED, message: "You are not allowed to create this resource.", detail: null}
+      '404':
+        description: Not found
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' } 
+            examples:
+              bad:
+                value: { status: error, code: NOT_FOUND, message: "This resource does not exist.", detail: null}
+      '412':
+        description: Precondition Failed (ETag mismatch)
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+/gacha/{gachaId}/history:
+  get:
+    tags: [Gacha]
+    summary: Get history for a specific gacha
+    description: |
+      Returns a paginated list of events (plays and wins) for a specific gacha, including event ID, time, user, gacha name, result, and points spent.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+        description: ID of the gacha to retrieve history for
+        example: "gacha-123e4567-e89b-12d3-a456-426614174000"
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+        description: Page number for pagination
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        description: Number of items per page
+    responses:
+      '200':
+        description: Paginated gacha history
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/GachaHistoryListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "hist-123e4567-e89b-12d3-a456-426614174000"
+                        time: "2025-10-16T20:17:00Z"
+                        user: "testuser1"
+                        gacha: "Autumn Lucky Box"
+                        result: "SSR Dragon Egg"
+                        points: "100.0"
+                      - id: "hist-98765432-1abc-def0-1234-56789abcdef0"
+                        time: "2025-10-16T19:00:00Z"
+                        user: "testuser2"
+                        gacha: "Autumn Lucky Box"
+                        result: "no prize"
+                        points: "100.0"
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '400':
+        description: Invalid parameters (e.g., invalid date range or gachaId)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidDate:
+                value: { status: error, code: INVALID_INPUT, message: "startDate must be before endDate", detail: null }
+              invalidGachaId:
+                value: { status: error, code: INVALID_INPUT, message: "Invalid gachaId format, must be a valid UUID", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '404':
+        description: Gacha not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              notFound:
+                value: { status: error, code: NOT_FOUND, message: "Gacha not found", detail: null }
+
+
+# ========================
+# Prize Feature
+# ========================
+/gacha/{gachaId}/prizes:
+  get:
+    tags: [Prizes]
+    summary: List prizes for a gacha
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    responses:
+      '200':
+        description: Prize list
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/PrizeListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "9f2bb7e4-4d9a-4c0f-8d0a-6a4d0f4a3e21"
+                        gachaId: "123e4567-e89b-12d3-a456-426614174000"
+                        name: "SSR Dragon Egg"
+                        rarity: ur
+                        probability: 0.5
+                        stock: "inf"
+                        imageUrl: "https://cdn.example.com/prizes/dragon-egg.webp"
+                        wins: 12
+                        winRate: 0.48
+                        recentWins: []
+                    page: { page: 1, limit: 20, total: 1, has_next: false }
+  post:
+    tags: [Prizes]
+    summary: Create a prize (single)
+    description: "Creates a prize under the specified gacha. Validates overall probability sum across the gacha."
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema: { $ref: '../components/schemas.yaml#/PrizeCreateForm' }
+    responses:
+      '201':
+        description: Created
+        headers:
+          Location: { $ref: '../components/headers.yaml#/Location' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/PrizeEntity' }
+            examples:
+              created:
+                value:
+                  status: success
+                  message: "Prize created."
+                  meta: null
+                  data:
+                    id: "9f2bb7e4-4d9a-4c0f-8d0a-6a4d0f4a3e21"
+                    gachaId: "123e4567-e89b-12d3-a456-426614174000"
+                    name: "SSR Dragon Egg"
+                    rarity: ur
+                    probability: 0.5
+                    stock: "inf"
+                    imageUrl: "https://cdn.example.com/prizes/dragon-egg.webp"
+                    wins: 0
+                    winRate: 0
+                    recentWins: []
+      '400':
+        description: Invalid input or probability sum check failed
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidProbability:
+                value: { status: error, code: INVALID_PROBABILITY, message: "probabilities must sum to 100%", detail: { currentTotal: 104.5 } }
+      '401':
+        description: Unauthorized
+        content: 
+          application/json: 
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              bad:
+                value: { status: error, code: UNAUTHORIZED, message: "You are not allowed to create this resource.", detail: null}
+/gacha/{gachaId}/prizes/{prizeId}:
+  get:
+    tags: [Prizes]
+    summary: Get a prize
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: path
+        name: prizeId
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: Prize detail
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/PrizeEntity' }
+  patch:
+    tags: [Prizes]
+    summary: Update prize (single endpoint, partial)
+    description: |
+      Updates any mutable prize fields (partial). Use multipart when changing `image`.
+      Validation based on the parent gacha's `draw_type`:
+      - probability: Probability Setting
+      - position:  Fixed Setting
+      - hybrid:   Round + Probability
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: path
+        name: prizeId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: header
+        name: If-Match
+        required: false
+        schema: { type: string }
+        description: ETag from a prior GET response (optimistic concurrency)
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema: { $ref: '../components/schemas.yaml#/PrizeUpdateForm' }
+          examples:
+            renameAndImage:
+              value:
+                name: "SSR Dragon Egg (Alt Art)"
+                # image: (binary)
+    responses:
+      '200':
+        description: Updated
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Location: { $ref: '../components/headers.yaml#/Location' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/PrizeEntity' }
+            examples:
+              updatedRange:
+                value:
+                  status: success
+                  message: "Prize updated."
+                  meta: null
+                  data:
+                    id: "9f2bb7e4-4d9a-4c0f-8d0a-6a4d0f4a3e21"
+                    gachaId: "123e4567-e89b-12d3-a456-426614174000"
+                    name: "SSR Dragon Egg (Foil)"
+                    rarity: "ur"
+                    probability: 0.6
+                    round: 10
+                    stock: "25"
+                    imageUrl: "https://cdn.example.com/prizes/dragon-egg-foil.webp"
+                    wins: 12
+                    winRate: 0.48
+                    recentWins: []
+      '400':
+        description: Invalid input / method mismatch / probability sum error
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidProbability:
+                value: { status: error, code: INVALID_PROBABILITY, message: "probabilities must sum to 100%", detail: { currentTotal: 103.5 } }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+      '404':
+        description: Not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+      '412':
+        description: Precondition Failed (ETag mismatch)
+        headers:
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+  delete:
+    tags: [Prizes]
+    summary: Delete a prize
+    description: "Delete is allowed only if business rules permit (e.g., no active draws referencing it)."
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: path
+        name: prizeId
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '204':
+        description: Deleted
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+      '409':
+        description: Conflict (cannot delete due to constraints)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+/gacha/{gachaId}/prizes/export:
+  get:
+    tags: [Prizes]
+    summary: Export prizes as CSV
+    description: "Exports all prizes for the gacha as text/csv. Columns: name, rarity, probability, stock, imageUrl"
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: CSV file
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          text/csv:
+            schema:
+              type: string
+            examples:
+              sample:
+                summary: CSV preview
+                value: |
+                  name,rarity,probability,stock,imageUrl
+                  SSR Dragon Egg,ur,0.5,,https://cdn.example.com/prizes/dragon-egg.webp
+                  Silver Coin,c,45,1000,https://cdn.example.com/prizes/silver-coin.webp
+/gacha/{gachaId}/prizes/template:
+  get:
+    tags: [Prizes]
+    summary: Download CSV template
+    description: "Returns a CSV header row and one example row."
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+    responses:
+      '200':
+        description: CSV template
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+        content:
+          text/csv:
+            schema:
+              type: string
+            examples:
+              template:
+                value: |
+                  name,rarity,probability,stock,image
+                  Example Prize,c,10,100,http://imgs/example.png
+/gacha/{gachaId}/prizes/import:
+  post:
+    tags: [Prizes]
+    summary: Import prizes from CSV
+    description: |
+      Accepts a CSV file (UTF-8). Columns: name, rarity, probability, stock, image
+      - `stock`: inf, infinite, positive number.
+      - image: url
+      - Validates probability sum per gacha (overall 100%).
+    security: [ { BearerAuth: [] } ]
+    parameters:
+      - in: path
+        name: gachaId
+        required: true
+        schema: { type: string, format: uuid }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [file]
+            properties:
+              file:
+                type: string
+                format: binary
+                description: "text/csv file"
+    responses:
+      '200':
+        description: Import result
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: null
+            examples:
+              result:
+                value:
+                  status: success
+                  message: "Imported csv successfully."
+                  meta: null
+                  data: null
+      '400':
+        description: Invalid CSV or probability sum violation
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+
+
+# ========================
+# Auth Feature
+# ========================
+/login:
+  post:
+    tags: [Auth]
+    summary: Authenticate and create a session
+    description: Creates a session and returns a session ID, optionally setting a cookie.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, password]
+            properties:
+              email:
+                type: string
+                example: "admin@gmail.com"
+              password:
+                type: string
+                example: "securepassword123"
+    responses:
+      "200":
+        description: Session created
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          Set-Cookie:
+            schema: { type: string, example: "sessionId=abc123; HttpOnly; Secure; SameSite=Strict" }
+            description: Sets session ID cookie (optional, if using CookieAuth)
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+               
+            examples:
+              success:
+                value:
+                  status: success
+                  message: "User is loging successfully!"
+      "401":
+        description: Invalid credentials
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid username or password", detail: null }
+
+
+# ========================
+# User Feature
+# ========================
+/users:
+  get:
+    tags: [User]
+    summary: List users
+    description: Returns a paginated list of users with id, username, points balance, number of plays, and last login.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: query
+        name: userId
+        schema: { type: string, format: uuid, nullable: true }
+        description: Filter by exact or partial user ID (UUID). Case-sensitive.
+        required: false
+        example: "123e4567-e89b-12d3-a456-426614174000"
+      - in: query
+        name: username
+        schema: { type: string, maxLength: 255, nullable: true }
+        description: Filter by case-insensitive partial username match.
+        required: false
+        example: "test"
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    responses:
+      '200':
+        description: Paginated user list
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/UserListEntity' }
+            examples:
+              searchByUsername:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "user-123e4567-e89b-12d3-a456-426614174000"
+                        username: "testuser1"
+                        points_balance: 1000
+                        number_of_plays: 50
+                        last_login: "2025-10-16T19:58:00Z"
+                      - id: "user-98765432-1abc-def0-1234-56789abcdef0"
+                        username: "testuser2"
+                        points_balance: 500
+                        number_of_plays: 20
+                        last_login: "2025-10-15T17:00:00Z"
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+              searchByUserId:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "user-123e4567-e89b-12d3-a456-426614174000"
+                        username: "testuser1"
+                        points_balance: 1000
+                        number_of_plays: 50
+                        last_login: "2025-10-16T19:58:00Z"
+                    page: { page: 1, limit: 20, total: 1, has_next: false }
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "user-123e4567-e89b-12d3-a456-426614174000"
+                        username: "testuser1"
+                        points_balance: 1000
+                        number_of_plays: 50
+                        last_login: "2025-10-16T12:08:00Z"
+                      - id: "user-98765432-1abc-def0-1234-56789abcdef0"
+                        username: "testuser2"
+                        points_balance: 500
+                        number_of_plays: 20
+                        last_login: "2025-10-15T10:00:00Z"
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+/users/{userId}/win-history:
+  get:
+    tags: [User]
+    summary: Get win history for a specific user
+    description: Returns a paginated list of the user's winnings, including win date, gacha name, prize name, and points paid.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: path
+        name: userId
+        required: true
+        schema: { type: string, format: uuid }
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+    responses:
+      '200':
+        description: Paginated win history
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/WinHistoryListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - win_date: "2025-10-16T12:08:00Z"
+                        gacha_name: "Autumn Lucky Box"
+                        prize_name: "SSR Dragon Egg"
+                        point_paid: 100.0
+                      - win_date: "2025-10-15T10:00:00Z"
+                        gacha_name: "Summer Event Gacha"
+                        prize_name: "Rare Gem"
+                        point_paid: 50.0
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '404':
+        description: User not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              notFound:
+                value: { status: error, code: NOT_FOUND, message: "User not found", detail: null }
+/users/{userId}/points:
+  post:
+    tags: [User]
+    summary: Perform a point operation on a user
+    description: Adds, deducts, or sets points for a user, with a reason for the operation.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: path
+        name: userId
+        required: true
+        schema: { type: string, format: uuid }
+        description: ID of the user to perform the point operation on
+        example: "user-123e4567-e89b-12d3-a456-426614174000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/PointOperationRequest' }
+          examples:
+            addPoints:
+              value:
+                number_of_points: 100.0
+                operation: "add_point"
+                reason: "Bonus for event participation"
+    responses:
+      '200':
+        description: Point operation successful
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data:
+                      type: object
+                      properties:
+                        user_id:
+                          type: string
+                          format: uuid
+                          example: "user-123e4567-e89b-12d3-a456-426614174000"
+                        new_points_balance:
+                          type: number
+                          format: float
+                          minimum: 0
+                          example: 1100.0
+            examples:
+              updated:
+                value:
+                  status: success
+                  message: "Points updated successfully"
+                  meta: null
+                  data:
+                    user_id: "user-123e4567-e89b-12d3-a456-426614174000"
+                    new_points_balance: 1100.0
+      '400':
+        description: Invalid input (e.g., negative points for deduct, insufficient balance)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidInput:
+                value: { status: error, code: INVALID_INPUT, message: "Insufficient points for deduction", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '403':
+        description: Forbidden (insufficient authority)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              forbidden:
+                value: { status: error, code: FORBIDDEN, message: "Insufficient authority", detail: null }
+      '404':
+        description: User not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              notFound:
+                value: { status: error, code: NOT_FOUND, message: "User not found", detail: null }
+
+# ========================
+# Log Feature
+# ========================
+/logs/admin:
+  get:
+    tags: [Logs]
+    summary: Get admin activity logs
+    description: |
+      Returns a paginated list of admin activity logs, including datetime, admin name, operation detail, subject, and IP address.
+      Supports filtering by operation type and date range.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: query
+        name: operationType
+        schema:
+          type: string
+          enum: [pack-creation, change-gacha-setting, add-point, deduct-point]
+          nullable: true
+        description: Filter by operation type. If not provided, returns all types.
+        required: false
+        example: "pack-creation"
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+        description: Page number for pagination
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        description: Number of items per page
+    responses:
+      '200':
+        description: Paginated admin logs
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/AdminLogListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - datetime: "2025-10-16T20:34:00Z"
+                        admin_name: "admin1"
+                        operation_detail:
+                          type: "pack-creation"
+                          details: { "gachaId": "gacha-123e4567-e89b-12d3-a456-426614174000", "packName": "Summer Pack" }
+                        subject: "gacha:gacha-123e4567-e89b-12d3-a456-426614174000"
+                        ip_address: "192.168.1.1"
+                      - datetime: "2025-10-16T19:00:00Z"
+                        admin_name: "admin2"
+                        operation_detail:
+                          type: "add-point"
+                          details: { "userId": "user-98765432-1abc-def0-1234-56789abcdef0", "points": 100 }
+                        subject: "user:user-98765432-1abc-def0-1234-56789abcdef0"
+                        ip_address: "192.168.1.2"
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '400':
+        description: Invalid parameters (e.g., invalid date range)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidDate:
+                value: { status: error, code: INVALID_INPUT, message: "startDate must be before endDate", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+/logs/gacha:
+  get:
+    tags: [Logs]
+    summary: Get gacha play logs
+    description: |
+      Returns a paginated list of gacha play logs, including datetime, username, gacha name, prize name, probability, and random value.
+      Supports filtering by gacha ID, username, and date range.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: query
+        name: gachaId
+        schema: { type: string, format: uuid, nullable: true }
+        description: Filter by gacha ID (UUID).
+        required: false
+        example: "gacha-123e4567-e89b-12d3-a456-426614174000"
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+        description: Page number for pagination
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        description: Number of items per page
+    responses:
+      '200':
+        description: Paginated gacha logs
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/GachaLogListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - datetime: "2025-10-16T20:34:00Z"
+                        username: "testuser1"
+                        gacha_name: "Autumn Lucky Box"
+                        prize_name: "SSR Dragon Egg"
+                        probability: 0.05
+                        random_value: 0.827
+                      - datetime: "2025-10-16T19:00:00Z"
+                        username: "testuser2"
+                        gacha_name: "Autumn Lucky Box"
+                        prize_name: null
+                        probability: 0.95
+                        random_value: 0.412
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '400':
+        description: Invalid parameters (e.g., invalid gachaId or date range)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidGachaId:
+                value: { status: error, code: INVALID_INPUT, message: "Invalid gachaId format, must be a valid UUID", detail: null }
+              invalidDate:
+                value: { status: error, code: INVALID_INPUT, message: "startDate must be before endDate", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+
+
+# ========================
+# Admin Feature
+# ========================
+/admins:
+  get:
+    tags: [Admins]
+    summary: List admins with optional filtering
+    description: |
+      Returns a paginated list of admins with id, name, email, authority, last login, and status.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: query
+        name: page
+        schema: { type: integer, default: 1, minimum: 1 }
+        description: Page number for pagination
+      - in: query
+        name: limit
+        schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        description: Number of items per page
+    responses:
+      '200':
+        description: Paginated admin list
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+          Cache-Control:
+            schema: { type: string, example: "no-cache" }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/AdminListEntity' }
+            examples:
+              page1:
+                value:
+                  status: success
+                  message: null
+                  meta: null
+                  data:
+                    items:
+                      - id: "admin-123e4567-e89b-12d3-a456-426614174000"
+                        name: "Admin One"
+                        email: "admin1@example.com"
+                        authority: "admin"
+                        last_login: "2025-10-16T20:49:00Z"
+                        status: "valid"
+                      - id: "admin-98765432-1abc-def0-1234-56789abcdef0"
+                        name: "Operator Two"
+                        email: "operator2@example.com"
+                        authority: "operator"
+                        last_login: null
+                        status: "valid"
+                    page: { page: 1, limit: 20, total: 2, has_next: false }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '403':
+        description: Forbidden (insufficient authority)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              forbidden:
+                value: { status: error, code: FORBIDDEN, message: "Insufficient authority", detail: null }
+  post:
+    tags: [Admins]
+    summary: Create a new admin
+    description: Creates a new admin account with the specified ID, name, email, authority, and password.
+    security:
+      - SessionAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/AdminCreateRequest' }
+          examples:
+            createAdmin:
+              value:
+                admin_id: "admin-123e4567-e89b-12d3-a456-426614174000"
+                name: "Admin One"
+                email: "admin1@example.com"
+                authority: "admin"
+                password: "securePassword123"
+    responses:
+      '201':
+        description: Admin created successfully
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/AdminSummary' }
+            examples:
+              created:
+                value:
+                  status: success
+                  message: "Admin created successfully"
+                  meta: null
+                  data:
+                    id: "admin-123e4567-e89b-12d3-a456-426614174000"
+                    name: "Admin One"
+                    email: "admin1@example.com"
+                    authority: "admin"
+                    last_login: null
+                    status: "valid"
+      '400':
+        description: Invalid input (e.g., duplicate email, invalid admin_id)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidInput:
+                value: { status: error, code: INVALID_INPUT, message: "Email already exists", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '403':
+        description: Forbidden (insufficient authority)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              forbidden:
+                value: { status: error, code: FORBIDDEN, message: "Insufficient authority", detail: null }
+/admins/{adminId}:
+  patch:
+    tags: [Admins]
+    summary: Edit an admin's details
+    description: Updates the name, email, and/or authority of an existing admin.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: path
+        name: adminId
+        required: true
+        schema: { type: string, format: uuid }
+        description: ID of the admin to edit
+        example: "admin-123e4567-e89b-12d3-a456-426614174000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/AdminEditRequest' }
+          examples:
+            editAdmin:
+              value:
+                name: "Admin One Updated"
+                email: "admin1.updated@example.com"
+                authority: "operator"
+    responses:
+      '200':
+        description: Admin updated successfully
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/AdminSummary' }
+            examples:
+              updated:
+                value:
+                  status: success
+                  message: "Admin updated successfully"
+                  meta: null
+                  data:
+                    id: "admin-123e4567-e89b-12d3-a456-426614174000"
+                    name: "Admin One Updated"
+                    email: "admin1.updated@example.com"
+                    authority: "operator"
+                    last_login: "2025-10-16T20:49:00Z"
+                    status: "valid"
+      '400':
+        description: Invalid input (e.g., duplicate email)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidInput:
+                value: { status: error, code: INVALID_INPUT, message: "Email already exists", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '403':
+        description: Forbidden (insufficient authority)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              forbidden:
+                value: { status: error, code: FORBIDDEN, message: "Insufficient authority", detail: null }
+      '404':
+        description: Admin not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              notFound:
+                value: { status: error, code: NOT_FOUND, message: "Admin not found", detail: null }
+/admins/{adminId}/status:
+  patch:
+    tags: [Admins]
+    summary: Enable or disable an admin
+    description: Updates the status of an admin account to valid or invalid.
+    security:
+      - SessionAuth: []
+    parameters:
+      - in: path
+        name: adminId
+        required: true
+        schema: { type: string, format: uuid }
+        description: ID of the admin to enable/disable
+        example: "admin-123e4567-e89b-12d3-a456-426614174000"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '../components/schemas.yaml#/AdminStatusRequest' }
+          examples:
+            disableAdmin:
+              value:
+                status: "invalid"
+    responses:
+      '200':
+        description: Admin status updated successfully
+        headers:
+          X-Request-Id: { $ref: '../components/headers.yaml#/XRequestId' }
+          ETag: { $ref: '../components/headers.yaml#/ETag' }
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '../components/schemas.yaml#/SuccessBase'
+                - type: object
+                  properties:
+                    meta: { type: string, nullable: true }
+                    data: { $ref: '../components/schemas.yaml#/AdminSummary' }
+            examples:
+              updated:
+                value:
+                  status: success
+                  message: "Admin status updated successfully"
+                  meta: null
+                  data:
+                    id: "admin-123e4567-e89b-12d3-a456-426614174000"
+                    name: "Admin One"
+                    email: "admin1@example.com"
+                    authority: "admin"
+                    last_login: "2025-10-16T20:49:00Z"
+                    status: "invalid"
+      '400':
+        description: Invalid input
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              invalidInput:
+                value: { status: error, code: INVALID_INPUT, message: "Invalid status value", detail: null }
+      '401':
+        description: Unauthorized
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              unauthorized:
+                value: { status: error, code: UNAUTHORIZED, message: "Invalid session", detail: null }
+      '403':
+        description: Forbidden (insufficient authority)
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              forbidden:
+                value: { status: error, code: FORBIDDEN, message: "Insufficient authority", detail: null }
+      '404':
+        description: Admin not found
+        content:
+          application/json:
+            schema: { $ref: '../components/schemas.yaml#/ErrorEnvelope' }
+            examples:
+              notFound:
+                value: { status: error, code: NOT_FOUND, message: "Admin not found", detail: null }
