@@ -888,7 +888,6 @@ AdminCreateRequest:
       description: Password for the admin (will be hashed)
 AdminEditRequest:
   type: object
-  required: []
   properties:
     name:
       type: string

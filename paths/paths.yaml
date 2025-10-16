@@ -971,7 +971,6 @@
                 - type: object
                   properties:
                     meta: { type: string, nullable: true }
-                    data: null
             examples:
               result:
                 value:
